@@ -71,16 +71,11 @@ public final class GameRuntime {
             synchronized (this) {
                 Class<?> loaded = findLoadedClass(name);
                 if (loaded == null) {
-                    // AndroidX must be parent-first. GameActivity/AppCompat can otherwise resolve
-                    // ContentFrameLayout from the game APK while AppCompatDelegate resolves the
-                    // same-named class from FusionCore, which causes a ClassCastException.
-                    boolean sharedAndroidX = name.startsWith("androidx.") ||
-                            name.startsWith("com.google.android.material.");
                     boolean platform = name.startsWith("java.") || name.startsWith("javax.") ||
                             name.startsWith("android.") || name.startsWith("dalvik.") ||
                             name.startsWith("sun.") || name.startsWith("org.w3c.") ||
                             name.startsWith("org.xml.") || name.startsWith("dev.allofus.fusioncore.");
-                    if (!platform && !sharedAndroidX) {
+                    if (!platform) {
                         try { loaded = findClass(name); }
                         catch (ClassNotFoundException ignored) { }
                     }
@@ -178,11 +173,8 @@ public final class GameRuntime {
                     oldTheme.set(activity, theme);
                 }
                 InstrumentationHooks.applyTargetOrientation(activity);
-                if (target.hasExtra(InstrumentationHooks.EXTRA_FUSION_CONFIG)) {
-                    ViewGroup decor = (ViewGroup) activity.getWindow().getDecorView();
-                    Context loadingTheme = new ContextThemeWrapper(fusionBase, androidx.appcompat.R.style.Theme_AppCompat);
-                    decor.addView(LayoutInflater.from(loadingTheme).inflate(R.layout.loading_view, decor, false));
-                }
+                // Do not add FusionCore views to the target activity. Oculus/Unity's native
+                // GameActivity must create and own its own decor and AndroidX view hierarchy.
             } catch (Exception e) {
                 throw new IllegalStateException("Cannot prepare activity", e);
             }
