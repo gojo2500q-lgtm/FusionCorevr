@@ -160,8 +160,14 @@ extern "C" [[maybe_unused]] bool fusion_bootstrap_from_libmain(JNIEnv *env)
 
     log(LogLevel::INFO, TAG, "FusionCore bootstrap starting...");
     jobject javaConfig = get_fusion_config(env);
-    FusionConfig config = fusion_parse_config(env, javaConfig);
-    env->DeleteLocalRef(javaConfig);
+    FusionConfig config = javaConfig
+            ? fusion_parse_config(env, javaConfig)
+            : fusion_parse_repacked_config(env);
+    if (javaConfig) env->DeleteLocalRef(javaConfig);
+
+    if (!javaConfig) {
+        log(LogLevel::INFO, TAG, "No FusionConfig extra found; using repacked APK mode");
+    }
 
     log(LogLevel::INFO, TAG, "Executing Fusion bootstrap from libmain namespace...");
     if (!execute_fusion_config(config)) {
@@ -215,4 +221,3 @@ extern "C" [[maybe_unused]] bool fusion_bootstrap_from_libmain(JNIEnv *env)
     log(LogLevel::INFO, TAG, "FusionCore bootstrap finished successfully.");
     return true;
 }
-

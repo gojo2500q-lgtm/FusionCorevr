@@ -136,5 +136,52 @@ only plugins you trust and follow their own licenses and distribution terms.
 
 
 
+## Experimental direct APK repacking
+
+
+
+`tools/repack_apk.py` can inject the existing arm64 FusionCore native payload
+
+into an unmodified Unity APK while preserving its manifest and native Oculus
+
+activity. This is an experiment for diagnosing target-native loading and is
+
+not a replacement for QuestLoader or QuestPatcher. The output is unsigned
+
+until it is aligned and signed, and installing it requires removing the
+
+original package first because the signing key changes.
+
+
+
+Build FusionCore, then run:
+
+
+
+```bash
+
+python3 tools/repack_apk.py original.apk repacked-unsigned.apk
+
+zipalign -f -p 4 repacked-unsigned.apk repacked-aligned.apk
+
+apksigner sign --ks test.jks --ks-pass pass:changeit \
+
+  --ks-key-alias fusioncore-test --out repacked-signed.apk repacked-aligned.apk
+
+```
+
+
+
+The repacker only supports arm64 APKs containing `libmain.so`, `libunity.so`,
+
+and `libil2cpp.so`. It does not alter the target activity or AndroidX
+
+dependencies. The injected BepInEx and .NET archives are placed under
+
+`assets/FusionCore/`; extracting those archives into the target app-data
+
+directory is still required for the current experimental native bootstrap.
+
+
 
 

@@ -25,6 +25,10 @@ struct FusionConfig {
 
 FusionConfig fusion_parse_config(JNIEnv *env, jobject jFusionConfig);
 
+// Builds a configuration from the target application's Context when the
+// payload was injected directly into a repacked APK.
+FusionConfig fusion_parse_repacked_config(JNIEnv *env);
+
 void fusion_print_config(const FusionConfig &config);
 
 extern FusionConfig runtime_config;

@@ -175,6 +175,76 @@ FusionConfig fusion_parse_config(JNIEnv *env, jobject jFusionConfig)
     return config;
 }
 
+FusionConfig fusion_parse_repacked_config(JNIEnv *env)
+{
+    FusionConfig config{};
+    config.initialized = false;
+    config.useOriginalLibUnity = true;
+    config.isIl2Cpp2Mono = false;
+
+    jobject activity = getUnityActivity(env);
+    if (!activity) {
+        log(LogLevel::ERROR, TAG, "Repacked mode could not find Unity activity");
+        return config;
+    }
+
+    jclass activityClass = env->GetObjectClass(activity);
+    jmethodID getApplicationContext = env->GetMethodID(activityClass, "getApplicationContext",
+                                                        "()Landroid/content/Context;");
+    jobject context = getApplicationContext
+            ? env->CallObjectMethod(activity, getApplicationContext) : nullptr;
+    if (!context) {
+        log(LogLevel::ERROR, TAG, "Repacked mode could not obtain application context");
+        env->DeleteLocalRef(activityClass);
+        env->DeleteLocalRef(activity);
+        return config;
+    }
+
+    jclass contextClass = env->GetObjectClass(context);
+    jmethodID getApplicationInfo = env->GetMethodID(contextClass, "getApplicationInfo",
+                                                     "()Landroid/content/pm/ApplicationInfo;");
+    jobject info = getApplicationInfo ? env->CallObjectMethod(context, getApplicationInfo) : nullptr;
+    if (!info) {
+        log(LogLevel::ERROR, TAG, "Repacked mode could not obtain ApplicationInfo");
+        env->DeleteLocalRef(contextClass);
+        env->DeleteLocalRef(context);
+        env->DeleteLocalRef(activityClass);
+        env->DeleteLocalRef(activity);
+        return config;
+    }
+
+    jclass infoClass = env->GetObjectClass(info);
+    auto readField = [&](const char *name) -> std::string {
+        jfieldID field = env->GetFieldID(infoClass, name, "Ljava/lang/String;");
+        if (!field) { env->ExceptionClear(); return {}; }
+        jstring value = (jstring) env->GetObjectField(info, field);
+        if (!value) return {};
+        const char *chars = env->GetStringUTFChars(value, nullptr);
+        std::string result = chars ? chars : "";
+        if (chars) env->ReleaseStringUTFChars(value, chars);
+        env->DeleteLocalRef(value);
+        return result;
+    };
+    config.gameLibraryDirectory = readField("nativeLibraryDir");
+    config.appLibraryDirectory = config.gameLibraryDirectory;
+    config.appDataDirectory = readField("dataDir");
+    config.unityDataDirectory = config.appDataDirectory + "/files";
+    config.codeCacheDirectory = config.appDataDirectory + "/code_cache";
+    config.bepInExDirectory = config.appDataDirectory + "/BepInEx";
+    config.dotnetDirectory = config.appDataDirectory + "/dotnet";
+    config.unityVersion = "";
+    config.initialized = !config.gameLibraryDirectory.empty() && !config.appDataDirectory.empty();
+
+    log_format(LogLevel::INFO, TAG, "Using repacked target paths under {}", config.appDataDirectory);
+    env->DeleteLocalRef(infoClass);
+    env->DeleteLocalRef(info);
+    env->DeleteLocalRef(contextClass);
+    env->DeleteLocalRef(context);
+    env->DeleteLocalRef(activityClass);
+    env->DeleteLocalRef(activity);
+    return config;
+}
+
 void fusion_print_config(const FusionConfig &config)
 {
     log_format(LogLevel::DEBUG, TAG, "Use Original libunity.so: {}", config.useOriginalLibUnity);
